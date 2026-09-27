@@ -389,39 +389,47 @@ pub fn looks_like_spam(text: &str) -> bool {
         || t.contains("nfl-kalshi")
 }
 
-/// Walk the BFF event list with cursor pagination until exhausted. Returns
-/// every non-crosscategory event ticker (open + unopened: the ENTIRETY the
-/// user asked for). Bounded at 1000 pages as a runaway guard.
+/// Walk the official v2 events surface (cursor-paginated, external-api host)
+/// for BOTH open and unopened statuses: the ENTIRETY the user asked for.
+/// The frontend BFF list has no cursor and only serves the first 100 rows.
+/// Bounded at 1000 pages per status as a runaway guard.
 pub fn discover_events(ua: &str) -> Result<Vec<String>, ChError> {
+    const TRADE: &str = "https://external-api.kalshi.com/trade-api/v2";
     let mut out: Vec<String> = Vec::new();
-    let mut cursor = String::new();
-    for _page in 0..1000 {
-        let mut url = format!("{BFF}/events/?status=open%2Cunopened&page_size=100");
-        if !cursor.is_empty() {
-            url.push_str(&format!("&cursor={cursor}"));
-        }
-        let d = http_get_json(&url, ua)?;
-        let evs = d
-            .get("events")
-            .and_then(|e| e.as_array())
-            .ok_or_else(|| ChError::Parse(format!("events page missing 'events' array: {url}")))?;
-        if evs.is_empty() {
-            break;
-        }
-        for e in evs {
-            if let Some(t) = e.get("event_ticker").and_then(|v| v.as_str()) {
-                if !t.contains("CROSSCATEGORY") {
-                    out.push(t.to_string());
+    for status in ["open", "unopened"] {
+        let mut cursor = String::new();
+        for _page in 0..1000 {
+            let mut url = format!("{TRADE}/events?status={status}&limit=200");
+            if !cursor.is_empty() {
+                url.push_str(&format!("&cursor={cursor}"));
+            }
+            let d = http_get_json(&url, ua)?;
+            let evs = d.get("events").and_then(|e| e.as_array()).ok_or_else(|| {
+                ChError::Parse(format!("events page missing 'events' array: {url}"))
+            })?;
+            if evs.is_empty() {
+                break;
+            }
+            for e in evs {
+                // v2 rows use "event_ticker"; tolerate "ticker".
+                if let Some(t) = e
+                    .get("event_ticker")
+                    .or_else(|| e.get("ticker"))
+                    .and_then(|v| v.as_str())
+                {
+                    if !t.contains("CROSSCATEGORY") {
+                        out.push(t.to_string());
+                    }
                 }
             }
-        }
-        cursor = d
-            .get("cursor")
-            .and_then(|c| c.as_str())
-            .unwrap_or("")
-            .to_string();
-        if cursor.is_empty() {
-            break;
+            cursor = d
+                .get("cursor")
+                .and_then(|c| c.as_str())
+                .unwrap_or("")
+                .to_string();
+            if cursor.is_empty() {
+                break;
+            }
         }
     }
     out.sort();
