@@ -113,3 +113,25 @@ spikes) and honest reporting (volume without entropy is just noise).
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Jev escalation tier (`chathound triage`)
+
+[TypeSafe's Jev System One](https://docs.typesafe.ai) classifies the
+interesting slice of the stream into `{spam, pump, abuse, information,
+question, banter}` with a confidence:
+
+```
+export TYPESAFE_API_KEY=...
+chathound triage data/chat_stream.ndjson 100
+```
+
+The position-size gate is free; Jev bills per survivor — so triage pays only
+for messages from senders with real money on the line. Alerts fire on `pump`
+("I'll buy all of them!!!") and `information` (material claims: news, polls,
+injuries) at confidence >= 0.8. Validated on live tape: spam agreement 3/3 at
+confidence 1.00, plus pump/information catches the regex filter is blind to.
+
+Two rules from the live experiment: ONE message per Jev call (batched messages
+dilute context and everything returns "banter" at flat ~0.8 confidence), and
+never use Jev probabilities as trading anchors — it classifies text, it does
+not price events.

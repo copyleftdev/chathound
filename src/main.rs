@@ -19,6 +19,20 @@ USAGE:
                                             adaptive tap: hears the whole venue,
                                             writes NDJSON (one record per message)
   chathound stats  [NDJSON]                quick coverage/saturation report
+  chathound triage [NDJSON] [MIN_POS_USD=100]
+                                            escalation classifier: cheap gates
+                                            (sender position >= MIN_POS_USD)
+                                            select the slice, then ONE Jev
+                                            call per survivor classifies it
+                                            {{spam,pump,abuse,information,
+                                             question,banter}} + confidence.
+                                            Alerts to stderr on pump /
+                                            information at conf >= 0.8.
+                                            Needs TYPESAFE_API_KEY in env.
+
+JEV (optional):
+  triage is the escalation tier — do NOT classify every message (cost,
+  context dilution). The gate is free; the model bills per survivor.
 
 POLITENESS:
   - global token bucket (MAX_RPS sustained, burst 5, +-20% jitter)
@@ -339,6 +353,58 @@ fn cmd_stats(ndjson: &str) -> Result<(), ChError> {
     Ok(())
 }
 
+fn cmd_triage(ndjson: &str, min_pos_usd: f64) -> Result<(), ChError> {
+    use std::io::BufRead;
+    let key = std::env::var("TYPESAFE_API_KEY")
+        .map_err(|_| ChError::Io("TYPESAFE_API_KEY not set (Jev escalation needs it)".into()))?;
+    let f = std::fs::File::open(ndjson).map_err(|e| ChError::Io(format!("{ndjson}: {e}")))?;
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    let mut gated = 0usize;
+    let mut classified = 0usize;
+    let mut alerts = 0usize;
+    let mut rl = RateLimiter::new(4.0); // be polite to the model API too
+    for line in std::io::BufReader::new(f).lines() {
+        let Ok(line) = line else { break };
+        let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&line) else {
+            continue;
+        };
+        let pos = v["position_cost_usd"].as_f64().unwrap_or(0.0);
+        if pos < min_pos_usd {
+            continue; // cheap gate: small-money chatter is not worth tokens
+        }
+        gated += 1;
+        let text = v["text"].as_str().unwrap_or("").to_string();
+        let event = v["event_ticker"].as_str().unwrap_or("").to_string();
+        let side = v["position_side"].as_str().map(str::to_string);
+        rl.acquire();
+        match jev::classify(&text, &event, side.as_deref(), &key) {
+            Ok((class, conf)) => {
+                classified += 1;
+                v["jev_class"] = serde_json::json!(class);
+                v["jev_confidence"] = serde_json::json!(conf);
+                let conf_v = conf.unwrap_or(0.0);
+                if matches!(class.as_str(), "pump" | "information") && conf_v >= 0.8 {
+                    alerts += 1;
+                    eprintln!(
+                        "ALERT [{class} conf={conf_v:.2}] {event} | {} (pos ${pos})",
+                        text.chars().take(90).collect::<String>()
+                    );
+                }
+                let l = serde_json::to_string(&v).map_err(|e| ChError::Io(e.to_string()))?;
+                out.write_all(l.as_bytes())
+                    .and_then(|_| out.write_all(b"\n"))
+                    .map_err(|e| ChError::Io(e.to_string()))?;
+            }
+            Err(e) => eprintln!("jev error, message left unclassified: {e}"),
+        }
+    }
+    eprintln!(
+        "triage done: {gated} gated (>= ${min_pos_usd}), {classified} classified, {alerts} alerts"
+    );
+    Ok(())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -397,7 +463,22 @@ fn main() {
                 .unwrap_or("data/chat_stream.ndjson");
             cmd_stats(f).unwrap_or_else(|e| {
                 eprintln!("chathound: {e}");
-                std::process::exit(1)
+                std::process::exit(1);
+            });
+        }
+        Some("triage") => {
+            let f = args
+                .get(1)
+                .map(|s| s.as_str())
+                .filter(|s| !s.starts_with('-'))
+                .unwrap_or("data/chat_stream.ndjson");
+            let min_pos = args
+                .get(2)
+                .and_then(|s| s.parse::<f64>().ok())
+                .unwrap_or(100.0);
+            cmd_triage(f, min_pos).unwrap_or_else(|e| {
+                eprintln!("chathound: {e}");
+                std::process::exit(1);
             });
         }
         _ => usage(),

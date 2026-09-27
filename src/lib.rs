@@ -21,6 +21,7 @@
 //! and replayable outputs, explicit errors.
 
 pub mod entropy;
+pub mod jev;
 
 pub use entropy::EntropyState;
 

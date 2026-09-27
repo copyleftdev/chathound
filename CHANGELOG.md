@@ -36,3 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - CI/CD: tag-triggered `publish-crates-io` workflow (publishes to crates.io
   via the CARGO_REGISTRY_TOKEN secret on every `v*` tag).
+
+## [0.3.0] — 2026-09-27
+
+### Added
+- Jev System One adapter (`src/jev.rs`) and `triage` subcommand: escalation-tier
+  classification of chat messages into {spam, pump, abuse, information,
+  question, banter} with confidence. Cheap position-size gate first; one Jev
+  call per survivor (batching dilutes context — everything reads "banter").
+  Alerts on pump/information at conf >= 0.8. Requires TYPESAFE_API_KEY.
+- Live-tape validation (43-message test set): spam 3/3 agreement with the
+  regex filter at conf 1.00; catches what heuristics cannot (price-influence
+  attempts, material information claims).

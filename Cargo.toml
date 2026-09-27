@@ -1,6 +1,6 @@
 [package]
 name = "chathound"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 description = "Polite, exhaustive tap of Kalshi live-market chat: adaptive polling that hears the whole venue without overwhelming it."
 license = "MIT"
