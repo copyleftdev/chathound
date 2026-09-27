@@ -1,9 +1,10 @@
 # chathound
 
 [![CI](https://github.com/copyleftdev/chathound/actions/workflows/ci.yml/badge.svg)](https://github.com/copyleftdev/chathound/actions/workflows/ci.yml)
+[![publish crates.io](https://github.com/copyleftdev/chathound/actions/workflows/publish.yml/badge.svg)](https://github.com/copyleftdev/chathound/actions/workflows/publish.yml)
 [![crates.io](https://img.shields.io/crates/v/chathound.svg)](https://crates.io/crates/chathound)
+[![crates.io downloads](https://img.shields.io/crates/d/chathound.svg)](https://crates.io/crates/chathound)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![LoC](https://img.shields.io/badge/LOC-~800-informational)]()
 
 **A polite, exhaustive tap of Kalshi live-market chat.** Listens to *every*
 chat-enabled event on the exchange — sports slates, election markets,
