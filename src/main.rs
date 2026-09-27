@@ -180,6 +180,10 @@ struct OutRec {
     position_cost_usd: Option<f64>,
     position_market: Option<String>,
     spam: bool,
+    // Shannon information state of this event's chat so far (see entropy.rs)
+    ent_word_bits: f64,
+    ent_user_norm: f64,
+    ent_side_bits: f64,
 }
 
 fn cmd_listen(file: &str, out_path: &str, max_rps: f64) -> Result<(), ChError> {
@@ -202,6 +206,7 @@ fn cmd_listen(file: &str, out_path: &str, max_rps: f64) -> Result<(), ChError> {
         .map_err(|e| ChError::Io(format!("{out_path}: {e}")))?;
     let mut cooldown_until = std::time::Instant::now();
     let mut pass = 0u64;
+    let mut ent: HashMap<String, EntropyState> = HashMap::new();
     loop {
         sched.wait_next(Duration::from_secs(60));
         while let Some(t) = sched.pop_due(Duration::from_millis(200)) {
@@ -221,6 +226,16 @@ fn cmd_listen(file: &str, out_path: &str, max_rps: f64) -> Result<(), ChError> {
                         let ids: Vec<String> = p.messages.iter().map(|m| m.id.clone()).collect();
                         let was_primed = sched.primed(&t);
                         let fresh = sched_states_observe(&mut sched, &t, &ids);
+                        {
+                            let st = ent.entry(t.clone()).or_default();
+                            for m in &p.messages {
+                                st.update(&m.text, &m.user.name, m.position_side.as_deref());
+                            }
+                        }
+                        let (ent_word_bits, ent_user_norm, ent_side_bits, _, _) = ent
+                            .get(&t)
+                            .map(EntropyState::report)
+                            .unwrap_or((0.0, 0.0, 0.0, 0, 0));
                         for m in &p.messages {
                             let rec = OutRec {
                                 ts_utc: unix_now(),
@@ -235,6 +250,9 @@ fn cmd_listen(file: &str, out_path: &str, max_rps: f64) -> Result<(), ChError> {
                                 position_cost_usd: m.position_cost_usd,
                                 position_market: m.position_color_market_ticker.clone(),
                                 spam: looks_like_spam(&m.text),
+                                ent_word_bits,
+                                ent_user_norm,
+                                ent_side_bits,
                             };
                             let line = serde_json::to_string(&rec)
                                 .map_err(|e| ChError::Io(e.to_string()))?;

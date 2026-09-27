@@ -75,8 +75,24 @@ chathound stats data/chat_stream.ndjson
 ```
 
 `spam` flags the bonus-phishing posts that infest these chats (fake
-`ads-kalshi.com` domains with zero-width stppers) so downstream NLP can skip
+`ads-kalshi.com` domains with zero-width stippers) so downstream NLP can skip
 them.
+
+## Shannon entropy: the information content of the crowd
+
+Every NDJSON record carries three incremental information-theoretic measures
+for its event (see `src/entropy.rs`):
+
+| Field | Meaning | Read it as |
+|---|---|---|
+| `ent_word_bits` | Shannon entropy of the word distribution | high = diverse discussion; ~0 = repetition (spam, a rant) |
+| `ent_user_norm` | normalized speaker entropy `H/log2(n)` | 1.0 = distributed crowd; ~0 = one person's monologue |
+| `ent_side_bits` | entropy of position-side distribution | ~1 bit = balanced YES/NO crowd; ~0 = echo chamber |
+
+All are O(1) per message, exact over the observed distribution, with a bounded
+vocabulary (100k words/event) so hostile chats cannot grow memory. These are
+the inputs for contrarian signals (side entropy collapsing while volume
+spikes) and honest reporting (volume without entropy is just noise).
 
 ## Guarantees & bounds (TigerStyle)
 

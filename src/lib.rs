@@ -13,8 +13,16 @@
 //! 3. A server-health governor: HTTP 429/5xx trips a global cooldown so the
 //!    exchange never sees retry storms.
 //!
+//! On top of the raw stream, `entropy` computes Shannon information measures
+//! per event (lexical, speaker, and position-side entropy) — the information
+//! content of the crowd, not just its volume.
+//!
 //! TigerStyle: every buffer bounded, no panics on the hot path, deterministic
 //! and replayable outputs, explicit errors.
+
+pub mod entropy;
+
+pub use entropy::EntropyState;
 
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
