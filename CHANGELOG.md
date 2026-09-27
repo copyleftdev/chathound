@@ -28,3 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (position-side balance). O(1) per message, bounded vocabulary.
 - 8 entropy unit tests (uniform = log2(n), degenerate = 0, tokenizer,
   vocabulary cap), 19 total.
+
+## [0.2.1] — 2026-09-27
+
+### Changed
+- crates.io keywords normalized to five high-signal terms.
+### Added
+- CI/CD: tag-triggered `publish-crates-io` workflow (publishes to crates.io
+  via the CARGO_REGISTRY_TOKEN secret on every `v*` tag).

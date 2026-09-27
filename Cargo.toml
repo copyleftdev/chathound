@@ -1,11 +1,11 @@
 [package]
 name = "chathound"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Polite, exhaustive tap of Kalshi live-market chat: adaptive polling that hears the whole venue without overwhelming it."
 license = "MIT"
 repository = "https://github.com/copyleftdev/chathound"
-keywords = ["kalshi", "prediction-markets", "chat", "sentiment", "trading"]
+keywords = ["kalshi", "prediction-markets", "sentiment-analysis", "trading", "rust"]
 categories = ["command-line-utilities", "finance"]
 
 [dependencies]
